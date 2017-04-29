@@ -76,7 +76,7 @@ public class DefaultTaskGraphExecuter implements TaskGraphExecuter {
     private final BuildOperationExecutor buildOperationExecutor;
     private TaskGraphState taskGraphState = TaskGraphState.EMPTY;
 
-    private final Set<Task> requestedTasks = Sets.newTreeSet();
+    private final Set<Task> requestedTasks = Sets.newLinkedHashSet();
     private Spec<? super Task> filter = Specs.SATISFIES_ALL;
 
     public DefaultTaskGraphExecuter(ListenerManager listenerManager, TaskPlanExecutor taskPlanExecutor, Factory<? extends TaskExecuter> taskExecuter, BuildCancellationToken cancellationToken, BuildOperationExecutor buildOperationExecutor, WorkerLeaseService workerLeaseService, ResourceLockCoordinationService coordinationService) {
