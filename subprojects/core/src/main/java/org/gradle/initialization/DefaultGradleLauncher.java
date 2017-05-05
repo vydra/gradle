@@ -18,8 +18,11 @@ package org.gradle.initialization;
 import org.gradle.BuildListener;
 import org.gradle.BuildResult;
 import org.gradle.StartParameter;
+import org.gradle.api.Action;
 import org.gradle.api.Task;
 import org.gradle.api.Transformer;
+import org.gradle.api.artifacts.component.BuildIdentifier;
+import org.gradle.api.initialization.IncludedBuild;
 import org.gradle.api.internal.ExceptionAnalyser;
 import org.gradle.api.internal.GradleInternal;
 import org.gradle.api.internal.SettingsInternal;
@@ -31,6 +34,7 @@ import org.gradle.execution.taskgraph.CalculateTaskGraphDetails;
 import org.gradle.internal.concurrent.CompositeStoppable;
 import org.gradle.internal.operations.BuildOperationContext;
 import org.gradle.internal.operations.BuildOperationExecutor;
+import org.gradle.internal.operations.BuildOperationQueue;
 import org.gradle.internal.operations.RunnableBuildOperation;
 import org.gradle.internal.progress.BuildOperationDescriptor;
 import org.gradle.internal.service.scopes.BuildScopeServices;
@@ -169,6 +173,8 @@ public class DefaultGradleLauncher implements GradleLauncher {
         // marker descriptor class for identifying build operation
         buildOperationExecutor.run(new CalculateTaskGraphBuildOperation());
 
+        buildOperationExecutor.runAll(new StartIncludedBuildsBuildOperation());
+
         // Execute build
         buildOperationExecutor.run(new RunTasksBuildOperation());
     }
@@ -246,6 +252,38 @@ public class DefaultGradleLauncher implements GradleLauncher {
         @Override
         public BuildOperationDescriptor.Builder description() {
             return BuildOperationDescriptor.displayName("Run tasks");
+        }
+    }
+
+    private class StartIncludedBuildsBuildOperation implements Action<BuildOperationQueue<RunnableBuildOperation>> {
+        @Override
+        public void execute(BuildOperationQueue<RunnableBuildOperation> buildOperationQueue) {
+            IncludedBuildTaskGraph includedBuildTaskGraph = gradle.getServices().get(IncludedBuildTaskGraph.class);
+            for (IncludedBuild includedBuild : gradle.getIncludedBuilds()) {
+                RunnableBuildOperation runIncludedBuildBuildOperation = new RunIncludedBuildBuildOperation(includedBuildTaskGraph, includedBuild.getBuildIdentifier());
+                buildOperationQueue.add(runIncludedBuildBuildOperation);
+            }
+        }
+    }
+
+    private class RunIncludedBuildBuildOperation implements RunnableBuildOperation {
+
+        private final IncludedBuildTaskGraph includedBuildTaskGraph;
+        private final BuildIdentifier includedBuild;
+
+        public RunIncludedBuildBuildOperation(IncludedBuildTaskGraph includedBuildTaskGraph, BuildIdentifier includedBuild) {
+            this.includedBuildTaskGraph = includedBuildTaskGraph;
+            this.includedBuild = includedBuild;
+        }
+
+        @Override
+        public void run(BuildOperationContext context) {
+            includedBuildTaskGraph.awaitCompletion(includedBuild);
+        }
+
+        @Override
+        public BuildOperationDescriptor.Builder description() {
+            return BuildOperationDescriptor.displayName("Run tasks for " + includedBuild);
         }
     }
 
