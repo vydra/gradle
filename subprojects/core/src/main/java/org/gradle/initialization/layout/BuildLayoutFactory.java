@@ -15,6 +15,7 @@
  */
 package org.gradle.initialization.layout;
 
+import org.gradle.api.Nullable;
 import org.gradle.api.initialization.Settings;
 import org.gradle.api.resources.MissingResourceException;
 import org.gradle.internal.scripts.ScriptFileResolver;
@@ -56,6 +57,23 @@ public class BuildLayoutFactory {
         return getLayoutFor(currentDir, searchUpwards ? null : currentDir.getParentFile());
     }
 
+    /**
+     * Finds the Gradle settings file in a given directory.
+     *
+     * The search takes all scripting languages into account.
+     *
+     * @param directory the directory in which to look for a settings file
+     *
+     * @return the settings file or null if a settings file could not be found in the given directory.
+     */
+    @Nullable
+    public File findExistingSettingsFileIn(File directory) {
+        File defaultSettingsFile = new File(directory, Settings.DEFAULT_SETTINGS_FILE);
+        return defaultSettingsFile.isFile()
+            ? defaultSettingsFile
+            : scriptFileResolver.resolveScriptFile(directory, Settings.DEFAULT_SETTINGS_FILE_BASENAME);
+    }
+
     BuildLayout getLayoutFor(File currentDir, File stopAt) {
         File settingsFile = findExistingSettingsFileIn(currentDir);
         if (settingsFile != null) {
@@ -75,13 +93,5 @@ public class BuildLayoutFactory {
 
     private BuildLayout layout(File rootDir, File settingsDir, File settingsFile) {
         return new BuildLayout(rootDir, settingsDir, settingsFile);
-    }
-
-    private File findExistingSettingsFileIn(File directory) {
-        File defaultSettingsFile = new File(directory, Settings.DEFAULT_SETTINGS_FILE);
-        if (defaultSettingsFile.isFile()) {
-            return defaultSettingsFile;
-        }
-        return scriptFileResolver.resolveScriptFile(directory, Settings.DEFAULT_SETTINGS_FILE_BASENAME);
     }
 }
